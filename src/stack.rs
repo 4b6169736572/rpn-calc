@@ -1,3 +1,4 @@
+#[derive(Default, Debug, Clone)]
 pub struct Stack(Vec<f64>);
 
 impl Stack {

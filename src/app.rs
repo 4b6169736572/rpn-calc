@@ -1,20 +1,21 @@
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     DefaultTerminal,
+    crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
 };
 
 use crate::{domain, stack::Stack, ui};
 
 #[derive(Default, Debug)]
 pub struct App {
-    stack: Stack,
-    input: String,
-    should_quit: bool,
+    pub stack: Vec<f64>,
+    pub input: String,
+    pub should_quit: bool,
 }
 
 impl App {
     pub fn push_input(&mut self) {
-        self.stack.push(self.input.into::<f64>()?);
+        self.stack.push(self.input.parse::<f64>().unwrap());
+        self.input.clear();
     }
 }
 
