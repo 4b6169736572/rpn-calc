@@ -1,0 +1,52 @@
+# Core Objective
+- Terminal based RPN calculator
+
+# Core Focuses
+- Speed
+- Minimalism
+- Ease of discovery
+- Rich history and undo
+- Accuracy and precision
+- Flexibility and extensibility
+- Multithreaded processing
+
+# Example Design
+
++---+------------Stack----------------------+-----History------+
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+|   |                                       |                  |
+| 9 | 12                                    |                  |
+| 8 | 1.2478e-12                            |                  |
+| 7 | (x^2)/((x-2)(x+3))                    |                  |
+| 6 | [ ...                                 |                  |
+| 5 |   12x + 4y + z = 4,                   |                  |
+| 4 |   3x + 2y = 12,                       |                  |
+| 3 |   x + y + z = 24,                     |                  |
+| 2 | x - y                                 |                  |
+| 1 | 27                                    |                  |
++---+---------Entry-------------------------+------------------+
+| >  3                                                         |
++-------------Help--------------------------+----Mode----------+
+|                                           | b10 NS 12d       |
++-------------------------------------------+------------------+
+
+# MVP
+- Add, sub, mult, div for f64
+- rotate n-long chunks of stack up k spaces
