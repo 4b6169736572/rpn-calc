@@ -38,8 +38,7 @@ pub fn view(frame: &mut Frame, app: &App) {
         .stack
         .clone()
         .iter()
-        .map(|item| Line::from(item.to_string()))
-        .rev()
+        .map(|item| Line::from(item.render(0)))
         .collect();
     let stack_widget = Paragraph::new(stack_lines).block(
         Block::bordered()
@@ -47,7 +46,7 @@ pub fn view(frame: &mut Frame, app: &App) {
             .padding(Padding::new(2, 2, 1, 1)),
     );
 
-    let input_widget = Paragraph::new(app.input.clone()).block(
+    let input_widget = Paragraph::new(app.input.string()).block(
         Block::bordered()
             .border_set(INPUT_SET)
             .title(" Input ")
