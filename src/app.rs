@@ -1,17 +1,24 @@
-use std::ops::Div;
+use std::{collections::HashMap, ops::Div};
 
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
 };
 
-use crate::{app::GroupingSymbol::*, app::StackObject::*, domain, errors::Error, ui};
+use crate::{
+    app::{GroupingSymbol::*, Mode::Normal, StackObject::*, Symbol::Variable},
+    domain,
+    errors::Error,
+    ui,
+};
 
 #[derive(Default)]
 pub struct App {
     pub stack: Vec<StackObject>,
     pub input: Input,
     pub should_quit: bool,
+    pub variables: HashMap<char, StackObject>,
+    pub mode: Mode,
 }
 
 impl App {
@@ -21,6 +28,14 @@ impl App {
             Err(errror) => panic!(),
         }
     }
+}
+
+#[derive(Default)]
+pub enum Mode {
+    #[default]
+    Normal,
+    Store,
+    Recall,
 }
 
 #[derive(Clone, Default)]
@@ -65,20 +80,53 @@ impl StackObject {
                 let rendered = expression.function.render(left, right);
                 if depth == 0 {
                     rendered
-                } else if depth % 2 == 1 {
-                    format!("( {} )", rendered)
                 } else {
-                    format!("[ {} ]", rendered)
+                    format!("({rendered})")
                 }
+                // else if depth % 2 == 1 {
+                //     format!("({})", rendered)
+                // } else {
+                //     format!("[{}]", rendered)
+                // }
             }
             Symbol(symbol) => symbol.render(),
         }
     }
 }
 
-impl Into<String> for StackObject {
-    fn into(self) -> String {
-        self.render(0)
+pub trait Evaluate {
+    fn evaluate(self, app: &App) -> Self;
+}
+
+impl Evaluate for StackObject {
+    fn evaluate(self, app: &App) -> Self {
+        match self {
+            Expression(expression) => {
+                if let Ok(result) = expression.evaluate(app) {
+                    result
+                } else {
+                    unreachable!()
+                }
+            }
+            Symbol(symbol) => {
+                if let Variable(c) = symbol {
+                    if let Some(object) = app.variables.get(&c) {
+                        object.clone()
+                    } else {
+                        Symbol(Variable(c))
+                    }
+                } else {
+                    Symbol(symbol)
+                }
+            }
+            Number(num) => self,
+        }
+    }
+}
+
+impl From<StackObject> for String {
+    fn from(object: StackObject) -> Self {
+        object.render(0)
     }
 }
 
@@ -93,8 +141,9 @@ use BinaryFunction::*;
 use StackObject::*;
 
 impl Expression {
-    pub fn evaluate(self) -> Result<StackObject, Error> {
+    pub fn evaluate(self, app: &App) -> Result<StackObject, Error> {
         match (*self.left, *self.right, *self.function) {
+            // Number | Number | Function |
             (Number(left), Number(right), function) => match function {
                 Add => Ok(Number(left + right)),
                 Sub => Ok(Number(left - right)),
@@ -108,56 +157,13 @@ impl Expression {
                 Mult => Ok(Number(left * right)),
                 Exp => Ok(Number(left.powf(right))),
             },
-            (Expression(left_expression), Expression(right_expression), function) => {
-                match (left_expression.evaluate()?, right_expression.evaluate()?) {
-                    (Expression(left_expression), Expression(right_expression)) => {
-                        Ok(Expression(Expression {
-                            left: Box::new(Expression(left_expression)),
-                            right: Box::new(Expression(right_expression)),
-                            function: Box::new(function),
-                        }))
-                    }
-                    (left, right) => Expression {
-                        left: Box::new(left),
-                        right: Box::new(right),
-                        function: Box::new(function),
-                    }
-                    .evaluate(),
-                }
-            }
-            (Expression(left_expression), Number(right), function) => {
-                match left_expression.evaluate()? {
-                    Expression(left_expression) => Ok(Expression(Expression {
-                        left: Box::new(Expression(left_expression)),
-                        right: Box::new(Number(right)),
-                        function: Box::new(function),
-                    })),
-                    Number(left) => Expression {
-                        left: Box::new(Number(left)),
-                        right: Box::new(Number(right)),
-                        function: Box::new(function),
-                    }
-                    .evaluate(),
-                    _ => Err(Error::StackError("Evaluating Symbol.")),
-                }
-            }
-            (Number(left), Expression(right_expression), function) => {
-                match right_expression.evaluate()? {
-                    Expression(right_expression) => Ok(Expression(Expression {
-                        left: Box::new(Number(left)),
-                        right: Box::new(Expression(right_expression)),
-                        function: Box::new(function),
-                    })),
-                    Number(right) => Expression {
-                        left: Box::new(Number(left)),
-                        right: Box::new(Number(right)),
-                        function: Box::new(function),
-                    }
-                    .evaluate(),
-                    _ => Err(Error::StackError("Evaluating Symbol.")),
-                }
-            }
-            _ => Err(Error::StackError("Evaluating Symbol.")),
+            (left, right, function) => Ok(Expression(Expression {
+                left: Box::new(left.evaluate(app)),
+                right: Box::new(right.evaluate(app)),
+                function: Box::new(function),
+            })
+            .evaluate(app)),
+            _ => unreachable!(),
         }
     }
 }
@@ -170,11 +176,26 @@ pub enum Symbol {
 }
 
 impl Symbol {
+    pub fn evaluate(self, app: &App) -> StackObject {
+        match self {
+            Symbol::Variable(c) => {
+                if let Some(object) = app.variables.get(&c) {
+                    object.clone()
+                } else {
+                    Symbol(self)
+                }
+            }
+            _ => Symbol(self),
+        }
+    }
+}
+
+impl Symbol {
     pub fn render(&self) -> String {
         match self {
             Symbol::Variable(char) => char.to_string(),
-            Symbol::Left(grouper) => String::from(grouper.left()),
-            Symbol::Right(grouper) => String::from(grouper.right()),
+            Symbol::Left(grouper) => grouper.left(),
+            Symbol::Right(grouper) => grouper.right(),
         }
     }
 }
@@ -235,6 +256,9 @@ pub enum Message {
     Backspace,
     Evaluate,
     Quit,
+    ChangeMode(Mode),
+    Store(char),
+    Recall(char),
 }
 
 // Main begins the loop.
@@ -243,13 +267,11 @@ pub fn run(terminal: &mut DefaultTerminal) -> std::io::Result<()> {
     while !app.should_quit {
         // terminal frame and ref to app are passed to view() which handles rendering the app state.
         terminal.draw(|frame| ui::view(frame, &app))?;
-        // TODO: Remove event handling from here.
-        //
         // If there is an event which is a key press, pass it to handle_key().
         // If handle_key() returns a message, pass the message and a mut ref of app to update(),
         // otherwise, skip to next loop.
         if let Event::Key(key) = event::read()?
-            && let Some(msg) = handle_key(key)
+            && let Some(msg) = handle_key(key, &app.mode)
         {
             update(&mut app, msg);
         }
@@ -258,30 +280,48 @@ pub fn run(terminal: &mut DefaultTerminal) -> std::io::Result<()> {
 }
 
 const NUMERICAL: &str = "0123456789.";
+const CHARACTER: &str = "abcdfghijklmnopqrstuvwxyzABCDFGHIJKLMNOPQRSTUVWXYZ";
 
-// TODO: make into general event handler, and extract into seperate file.
-pub fn handle_key(key: KeyEvent) -> Option<Message> {
+pub fn handle_key(key: KeyEvent, mode: &Mode) -> Option<Message> {
     if key.kind != KeyEventKind::Press {
         return None;
     }
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
         return Some(Message::Quit);
     }
-    match key.code {
-        KeyCode::Char('q') => Some(Message::Quit),
-        KeyCode::Char(c) => match c {
-            c if NUMERICAL.contains(c) => Some(Message::Numerical(c)),
-            '/' => Some(Message::Function(Div)),
-            '*' => Some(Message::Function(Mult)),
-            '+' => Some(Message::Function(Add)),
-            '-' => Some(Message::Function(Sub)),
-            '^' => Some(Message::Function(Exp)),
-            '=' => Some(Message::Evaluate),
+    // if key.modifiers.contains(KeyModifiers::SHIFT) && key.code == KeyCode::Char('=') {
+    //     return Some(Message::Result);
+    // }
+    match mode {
+        Mode::Normal => match key.code {
+            KeyCode::Char('q') => Some(Message::Quit),
+            KeyCode::Char(c) => match c {
+                c if NUMERICAL.contains(c) => Some(Message::Numerical(c)),
+                '/' => Some(Message::Function(Div)),
+                '*' => Some(Message::Function(Mult)),
+                '+' => Some(Message::Function(Add)),
+                '-' => Some(Message::Function(Sub)),
+                '^' => Some(Message::Function(Exp)),
+                '=' => Some(Message::Evaluate),
+                'r' => Some(Message::ChangeMode(Mode::Recall)),
+                's' => Some(Message::ChangeMode(Mode::Store)),
+                _ => None,
+            },
+            KeyCode::Backspace => Some(Message::Backspace),
+            KeyCode::Enter => Some(Message::Return),
+            // Keychode::Char('s') => Some(Message::Store),
             _ => None,
         },
-        KeyCode::Backspace => Some(Message::Backspace),
-        KeyCode::Enter => Some(Message::Return),
-        _ => None,
+        Mode::Store => match key.code {
+            KeyCode::Char(c) if CHARACTER.contains(c) => Some(Message::Store(c)),
+            KeyCode::Backspace => Some(Message::Backspace),
+            _ => None,
+        },
+        Mode::Recall => match key.code {
+            KeyCode::Char(c) if CHARACTER.contains(c) => Some(Message::Recall(c)),
+            KeyCode::Backspace => Some(Message::Backspace),
+            _ => None,
+        },
     }
 }
 
@@ -315,14 +355,33 @@ pub fn update(app: &mut App, msg: Message) {
             }
         }
         Message::Quit => app.should_quit = true,
+        Message::Store(c) => {
+            if let Some(object) = app.stack.pop() {
+                app.variables.insert(c, object);
+            }
+            app.mode = Normal
+        }
+        Message::ChangeMode(mode) => app.mode = mode,
         Message::Evaluate => {
-            if let Some(Expression(expression)) = app.stack.pop() {
-                if let Ok(result) = expression.evaluate() {
-                    app.stack.push(result);
-                } else {
-                    panic!()
+            if let Some(object) = app.stack.pop() {
+                match object {
+                    Expression(expression) => {
+                        app.stack.push(expression.evaluate(&*app).unwrap());
+                    }
+                    Symbol(Symbol::Variable(c)) => {
+                        if let Some(result) = app.variables.get(&c) {
+                            app.stack.push(result.clone());
+                        }
+                    }
+                    _ => {}
                 }
             }
+        }
+        Message::Recall(c) => {
+            if let Some(object) = app.variables.get(&c) {
+                app.stack.push(Symbol(Variable(c)));
+            }
+            app.mode = Normal
         }
     }
 }

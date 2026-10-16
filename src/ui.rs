@@ -43,7 +43,7 @@ pub fn view(frame: &mut Frame, app: &App) {
     let stack_widget = Paragraph::new(stack_lines).block(
         Block::bordered()
             .title(" Stack ")
-            .padding(Padding::new(2, 2, 1, 1)),
+            .padding(Padding::new(2, 2, 0, 0)),
     );
 
     let input_widget = Paragraph::new(app.input.string()).block(
