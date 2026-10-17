@@ -36,6 +36,7 @@ pub enum Mode {
     Normal,
     Store,
     Recall,
+    Alpha,
 }
 
 #[derive(Clone, Default)]
@@ -259,6 +260,7 @@ pub enum Message {
     ChangeMode(Mode),
     Store(char),
     Recall(char),
+    Alpha(char),
 }
 
 // Main begins the loop.
@@ -305,6 +307,7 @@ pub fn handle_key(key: KeyEvent, mode: &Mode) -> Option<Message> {
                 '=' => Some(Message::Evaluate),
                 'r' => Some(Message::ChangeMode(Mode::Recall)),
                 's' => Some(Message::ChangeMode(Mode::Store)),
+                '\'' => Some(Message::ChangeMode(Mode::Alpha)),
                 _ => None,
             },
             KeyCode::Backspace => Some(Message::Backspace),
@@ -322,6 +325,11 @@ pub fn handle_key(key: KeyEvent, mode: &Mode) -> Option<Message> {
             KeyCode::Backspace => Some(Message::Backspace),
             _ => None,
         },
+        Mode::Alpha => match key.code {
+            KeyCode::Char(c) if CHARACTER.contains(c) => Some(Message::Alpha(c)),
+            KeyCode::Backspace => Some(Message::Backspace),
+            _ => None,
+        },
     }
 }
 
@@ -333,17 +341,19 @@ pub fn update(app: &mut App, msg: Message) {
                 app.push_input();
             }
             let (right, left) = (app.stack.pop(), app.stack.pop());
-
-            if let (Some(right), Some(left)) = (right, left) {
-                app.stack.push(Expression(Expression {
+            match (left, right) {
+                (Some(left), Some(right)) => app.stack.push(Expression(Expression {
                     left: Box::new(left),
                     right: Box::new(right),
                     function: Box::new(function),
-                }))
+                })),
+                (None, Some(object)) => app.stack.push(object),
+                _ => {}
             }
         }
         Message::Backspace => {
             app.stack.pop();
+            app.mode = Normal;
         }
         Message::Return => {
             if !app.input.is_empty() {
@@ -356,8 +366,11 @@ pub fn update(app: &mut App, msg: Message) {
         }
         Message::Quit => app.should_quit = true,
         Message::Store(c) => {
-            if let Some(object) = app.stack.pop() {
-                app.variables.insert(c, object);
+            if !app.input.is_empty() {
+                app.push_input();
+                app.variables.insert(c, app.stack.pop().unwrap());
+            } else if let Some(object) = app.stack.last() {
+                app.variables.insert(c, object.clone());
             }
             app.mode = Normal
         }
@@ -379,9 +392,13 @@ pub fn update(app: &mut App, msg: Message) {
         }
         Message::Recall(c) => {
             if let Some(object) = app.variables.get(&c) {
-                app.stack.push(Symbol(Variable(c)));
+                app.stack.push(object.clone());
             }
-            app.mode = Normal
+            app.mode = Normal;
+        }
+        Message::Alpha(c) => {
+            app.stack.push(Symbol(Variable(c)));
+            app.mode = Normal;
         }
     }
 }
