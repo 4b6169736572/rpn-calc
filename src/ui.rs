@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Padding, Paragraph},
 };
 
-use crate::app::App;
+use crate::app::{App, Mode};
 
 const INPUT_SET: ratatui::symbols::border::Set = ratatui::symbols::border::Set {
     top_left: "┌",
@@ -27,12 +27,15 @@ pub fn view(frame: &mut Frame, app: &App) {
     ])
     .areas(frame.area());
 
-    let [index_area, stack_area, history_area] = Layout::horizontal([
-        Constraint::Length(3),
-        Constraint::Fill(2),
-        Constraint::Min(15),
-    ])
-    .areas(body_area);
+    // Version to use when history is enabled
+    // let [index_area, stack_area, history_area] = Layout::horizontal([
+    //     Constraint::Length(3),
+    //     Constraint::Fill(2),
+    //     Constraint::Min(15),
+    // ])
+    // .areas(body_area);
+    let [index_area, stack_area] =
+        Layout::horizontal([Constraint::Length(3), Constraint::Fill(2)]).areas(body_area);
 
     let stack_lines: Vec<Line> = app
         .stack
@@ -58,12 +61,21 @@ pub fn view(frame: &mut Frame, app: &App) {
         .flex(Flex::End)
         .areas(index_area);
 
-    let input_widget = Paragraph::new(app.input.string()).block(
-        Block::bordered()
-            .border_set(INPUT_SET)
-            .title(" Input ")
-            .padding(Padding::new(2, 2, 0, 0)),
-    );
+    let input_widget = match app.mode {
+        Mode::Repeat(num) => Paragraph::new(format!("c-{} {}", num, app.input.string())).block(
+            Block::bordered()
+                .border_set(INPUT_SET)
+                .title(" Input ")
+                .padding(Padding::new(2, 2, 0, 0)),
+        ),
+
+        _ => Paragraph::new(app.input.string()).block(
+            Block::bordered()
+                .border_set(INPUT_SET)
+                .title(" Input ")
+                .padding(Padding::new(2, 2, 0, 0)),
+        ),
+    };
 
     let history_widget = Block::bordered().title(" History ");
 
@@ -85,7 +97,10 @@ pub fn view(frame: &mut Frame, app: &App) {
     frame.render_widget(stack_border_widget, stack_area);
     frame.render_widget(stack_widget, stack_bottom);
     frame.render_widget(input_widget, input_area);
-    frame.render_widget(history_widget, history_area);
+
+    // disasbled until history is began
+    // frame.render_widget(history_widget, history_area);
+
     frame.render_widget(help_widget, footer_area);
     frame.render_widget(index_widget_nums, usable_index);
 }

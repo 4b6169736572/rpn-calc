@@ -30,13 +30,14 @@ impl App {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub enum Mode {
     #[default]
     Normal,
     Store,
     Recall,
     Alpha,
+    Repeat(u16),
 }
 
 #[derive(Clone, Default)]
@@ -95,11 +96,7 @@ impl StackObject {
     }
 }
 
-pub trait Evaluate {
-    fn evaluate(self, app: &App) -> Self;
-}
-
-impl Evaluate for StackObject {
+impl StackObject {
     fn evaluate(self, app: &App) -> Self {
         match self {
             Expression(expression) => {
@@ -250,7 +247,9 @@ impl BinaryFunction {
 }
 
 // Every type of message that handle_key() can return.
+#[derive(Clone)]
 pub enum Message {
+    Flip,
     Numerical(char),
     Function(BinaryFunction),
     Return,
@@ -261,6 +260,7 @@ pub enum Message {
     Store(char),
     Recall(char),
     Alpha(char),
+    Repeat(u16),
 }
 
 // Main begins the loop.
@@ -288,14 +288,29 @@ pub fn handle_key(key: KeyEvent, mode: &Mode) -> Option<Message> {
     if key.kind != KeyEventKind::Press {
         return None;
     }
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-        return Some(Message::Quit);
+    // if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+    //     return Some(Message::Quit);
+    // }
+    if let KeyCode::Char(c) = key.code
+        && key.modifiers.contains(KeyModifiers::CONTROL)
+    {
+        match c {
+            num if NUMERICAL.contains(c) => {
+                return Some(Message::Repeat(num.to_digit(10).unwrap() as u16));
+            }
+            'c' => {
+                return Some(Message::Quit);
+            }
+            _ => {
+                return None;
+            }
+        }
     }
     // if key.modifiers.contains(KeyModifiers::SHIFT) && key.code == KeyCode::Char('=') {
     //     return Some(Message::Result);
     // }
     match mode {
-        Mode::Normal => match key.code {
+        Mode::Normal | Mode::Repeat(_) => match key.code {
             KeyCode::Char('q') => Some(Message::Quit),
             KeyCode::Char(c) => match c {
                 c if NUMERICAL.contains(c) => Some(Message::Numerical(c)),
@@ -312,7 +327,8 @@ pub fn handle_key(key: KeyEvent, mode: &Mode) -> Option<Message> {
             },
             KeyCode::Backspace => Some(Message::Backspace),
             KeyCode::Enter => Some(Message::Return),
-            // Keychode::Char('s') => Some(Message::Store),
+            KeyCode::Esc => Some(Message::ChangeMode(Normal)),
+            KeyCode::Tab => Some(Message::Flip),
             _ => None,
         },
         Mode::Store => match key.code {
@@ -363,6 +379,11 @@ pub fn update(app: &mut App, msg: Message) {
                     app.stack.push(object);
                 }
             }
+            if let Mode::Repeat(num) = app.mode {
+                for _ in 1..num {
+                    app.stack.push(app.stack.last().cloned().unwrap())
+                }
+            }
         }
         Message::Quit => app.should_quit = true,
         Message::Store(c) => {
@@ -373,6 +394,12 @@ pub fn update(app: &mut App, msg: Message) {
                 app.variables.insert(c, object.clone());
             }
             app.mode = Normal
+        }
+        Message::Flip => {
+            if let (Some(top), Some(bottom)) = (app.stack.pop(), app.stack.pop()) {
+                app.stack.push(top);
+                app.stack.push(bottom);
+            }
         }
         Message::ChangeMode(mode) => app.mode = mode,
         Message::Evaluate => {
@@ -399,6 +426,9 @@ pub fn update(app: &mut App, msg: Message) {
         Message::Alpha(c) => {
             app.stack.push(Symbol(Variable(c)));
             app.mode = Normal;
+        }
+        Message::Repeat(num) => {
+            app.mode = Mode::Repeat(num);
         }
     }
 }
