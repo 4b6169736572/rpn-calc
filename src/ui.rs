@@ -112,7 +112,8 @@ pub fn view(frame: &mut Frame, app: &App) {
 
     let history_widget = Block::bordered().title(" History ");
 
-    let help_widget = Block::bordered().title(" Help ");
+    let help_widget = Paragraph::new("Work in progress. Follow along for updates. :)")
+        .block(Block::bordered().padding(Padding::new(2, 2, 0, 0)));
 
     let index_widget_nums = Paragraph::new(
         (1..=stack_inner_area.height)
