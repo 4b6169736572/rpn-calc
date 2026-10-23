@@ -68,7 +68,18 @@ pub fn view(frame: &mut Frame, app: &App) {
                 .title(" Input ")
                 .padding(Padding::new(2, 2, 0, 0)),
         ),
-
+        Mode::IntoRepeat => Paragraph::new(format!("c- {}", app.input.string())).block(
+            Block::bordered()
+                .border_set(INPUT_SET)
+                .title(" Input ")
+                .padding(Padding::new(2, 2, 0, 0)),
+        ),
+        Mode::Store => Paragraph::new(format!("s- {}", app.input.string())).block(
+            Block::bordered()
+                .border_set(INPUT_SET)
+                .title(" Input ")
+                .padding(Padding::new(2, 2, 0, 0)),
+        ),
         _ => Paragraph::new(app.input.string()).block(
             Block::bordered()
                 .border_set(INPUT_SET)

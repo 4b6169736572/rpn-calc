@@ -38,6 +38,7 @@ pub enum Mode {
     Recall,
     Alpha,
     Repeat(u16),
+    IntoRepeat,
 }
 
 #[derive(Clone, Default)]
@@ -186,9 +187,6 @@ impl Symbol {
             _ => Symbol(self),
         }
     }
-}
-
-impl Symbol {
     pub fn render(&self) -> String {
         match self {
             Symbol::Variable(char) => char.to_string(),
@@ -261,6 +259,7 @@ pub enum Message {
     Recall(char),
     Alpha(char),
     Repeat(u16),
+    IntoRepeat,
 }
 
 // Main begins the loop.
@@ -295,9 +294,12 @@ pub fn handle_key(key: KeyEvent, mode: &Mode) -> Option<Message> {
         && key.modifiers.contains(KeyModifiers::CONTROL)
     {
         match c {
-            num if NUMERICAL.contains(c) => {
-                return Some(Message::Repeat(num.to_digit(10).unwrap() as u16));
+            'n' => {
+                return Some(Message::IntoRepeat);
             }
+            // num if NUMERICAL.contains(c) => {
+            //     return Some(Message::Repeat(num.to_digit(10).unwrap() as u16));
+            // }
             'c' => {
                 return Some(Message::Quit);
             }
@@ -346,6 +348,12 @@ pub fn handle_key(key: KeyEvent, mode: &Mode) -> Option<Message> {
             KeyCode::Backspace => Some(Message::Backspace),
             _ => None,
         },
+        Mode::IntoRepeat => match key.code {
+            KeyCode::Char(num) if NUMERICAL.contains(num) => {
+                Some(Message::Repeat(num.to_digit(10).unwrap() as u16))
+            }
+            _ => None,
+        },
     }
 }
 
@@ -368,8 +376,14 @@ pub fn update(app: &mut App, msg: Message) {
             }
         }
         Message::Backspace => {
-            app.stack.pop();
-            app.mode = Normal;
+            if let Mode::Repeat(num) = app.mode {
+                for _ in 1..num {
+                    app.stack.push(app.stack.last().cloned().unwrap())
+                }
+                app.mode = Normal;
+            } else {
+                app.stack.pop();
+            }
         }
         Message::Return => {
             if !app.input.is_empty() {
@@ -383,6 +397,7 @@ pub fn update(app: &mut App, msg: Message) {
                 for _ in 1..num {
                     app.stack.push(app.stack.last().cloned().unwrap())
                 }
+                app.mode = Normal;
             }
         }
         Message::Quit => app.should_quit = true,
@@ -396,10 +411,32 @@ pub fn update(app: &mut App, msg: Message) {
             app.mode = Normal
         }
         Message::Flip => {
-            if let (Some(top), Some(bottom)) = (app.stack.pop(), app.stack.pop()) {
-                app.stack.push(top);
-                app.stack.push(bottom);
+            if let Mode::Repeat(num) = app.mode
+                && num < app.stack.len() as u16
+            {
+                let mut buf: Vec<StackObject> = Vec::new();
+                for i in 1..num {
+                    buf.push(app.stack.pop().unwrap());
+                }
+                let last = app.stack.pop().unwrap();
+                buf.into_iter()
+                    .rev()
+                    .map(|object| app.stack.push(object))
+                    .collect::<()>();
+                app.stack.push(last);
+            } else {
+                match (app.stack.pop(), app.stack.pop()) {
+                    (Some(bottom), Some(top)) => {
+                        app.stack.push(bottom);
+                        app.stack.push(top);
+                    }
+                    (Some(bottom), None) => {
+                        app.stack.push(bottom);
+                    }
+                    _ => {}
+                }
             }
+            app.mode = Normal;
         }
         Message::ChangeMode(mode) => app.mode = mode,
         Message::Evaluate => {
@@ -426,6 +463,9 @@ pub fn update(app: &mut App, msg: Message) {
         Message::Alpha(c) => {
             app.stack.push(Symbol(Variable(c)));
             app.mode = Normal;
+        }
+        Message::IntoRepeat => {
+            app.mode = Mode::IntoRepeat;
         }
         Message::Repeat(num) => {
             app.mode = Mode::Repeat(num);
