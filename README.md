@@ -53,9 +53,6 @@ Type a number and press `Enter` to push it. Operators join the top two items int
 ┌ Input ───────────────────────────────────┐
 >  10                                      │
 └──────────────────────────────────────────┘
-┌ Help ────────────────────────────────────┐
-│                                          │
-└──────────────────────────────────────────┘
 ```
 
 The newest item sits at the bottom of the Stack panel, at level 1. The numbers on the left are stack levels, and the Input line shows what you are typing.
