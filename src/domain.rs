@@ -1,3 +1,8 @@
+//! Arithmetic from the first working version, in which the stack held plain
+//! `f64` values: `add`, `sub`, `mult` and `div` each popped two numbers and
+//! pushed the result. The whole file is commented out; operator keys now build
+//! an [`Expression`](crate::app::Expression) instead.
+
 // use crate::errors::{Error, Error::StackError};
 // use crate::stack::Stack;
 // 

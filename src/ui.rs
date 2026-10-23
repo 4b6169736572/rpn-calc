@@ -1,3 +1,5 @@
+//! Drawing: turns the [`App`] state into one frame.
+
 use ratatui::{
     Frame,
     layout::{Constraint, Flex, Layout},
@@ -8,6 +10,8 @@ use ratatui::{
 
 use crate::app::{App, Mode};
 
+/// Border characters for the Input box: a plain box whose left edge is drawn as
+/// `>`, like a prompt.
 const INPUT_SET: ratatui::symbols::border::Set = ratatui::symbols::border::Set {
     top_left: "┌",
     top_right: "┐",
@@ -19,6 +23,24 @@ const INPUT_SET: ratatui::symbols::border::Set = ratatui::symbols::border::Set {
     horizontal_bottom: "─",
 };
 
+/// Draws the whole screen for the current [`App`] state.
+///
+/// ```text
+///    ┌ Stack ──────────────┐   Index column (3 wide) beside the Stack panel,
+///  3 │                     │   which fills the remaining height. Items sit at
+///  2 │  (3 + 4) * 2        │   the bottom, newest last; the index numbers
+///  1 │  1                  │   count up from 1 at the bottom.
+///    └─────────────────────┘
+/// ┌ Input ─────────────────┐   3 rows. The left edge is drawn as ">"; the text
+/// >  10                    │   is prefixed with "s-", "c-" or "c-N" in Store,
+/// └────────────────────────┘   IntoRepeat and Repeat mode.
+/// ┌ Help ──────────────────┐   3 rows, an empty box.
+/// │                        │
+/// └────────────────────────┘
+/// ```
+///
+/// Stack items are bottom-aligned with [`Flex::End`], so the newest one sits
+/// right above the Input box and the index numbers line up with them.
 pub fn view(frame: &mut Frame, app: &App) {
     let [body_area, input_area, footer_area] = Layout::vertical([
         Constraint::Fill(1),

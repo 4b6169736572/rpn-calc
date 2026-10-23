@@ -1,3 +1,7 @@
+//! The `Stack` type from the first working version, a wrapper around
+//! `Vec<f64>` with `push`, `pop` and `len`. The whole file is commented out;
+//! the stack is now [`App::stack`](crate::app::App::stack), a `Vec<StackObject>`.
+
 // #[derive(Default, Debug, Clone)]
 // pub struct Stack(Vec<f64>);
 //
