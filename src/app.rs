@@ -75,6 +75,7 @@ pub enum Mode {
 pub struct Action {
     message: Message,
     input: Option<Input>,
+    mode: Mode,
 }
 
 /// The text typed on the Input line, not yet pushed onto the stack.
@@ -551,6 +552,7 @@ pub fn update(app: &mut App, msg: Message) {
                 app.history.push(Action {
                     input: Some(app.input.clone()),
                     message: Message::Return,
+                    mode: app.mode.copy(),
                 });
                 app.push_input();
             }
@@ -564,10 +566,15 @@ pub fn update(app: &mut App, msg: Message) {
                 app.history.push(Action {
                     input: None,
                     message: Message::Function(Div),
+                    mode: app.mode.copy(),
                 });
             }
         }
         Message::Backspace => {
+            if !app.input.is_empty() {
+                app.input.pop();
+                return;
+            }
             if let Mode::Repeat(num) = app.mode {
                 for _ in 1..num {
                     app.stack.push(app.stack.last().cloned().unwrap())
