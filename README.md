@@ -2,6 +2,9 @@
 
 A terminal calculator that uses Reverse Polish Notation (RPN), written in Rust with [ratatui](https://ratatui.rs). Operators build expressions you can read on the stack, and `=` evaluates them.
 
+## AI usage disclosure
+Claude was used for generating documentation and in the initial planning of this project. All actual code written and architecture decisions were made by me.
+
 ## What is an RPN calculator?
 
 Reverse Polish Notation puts the operator after its numbers: instead of `3 + 4` you type `3 4 +`. An RPN calculator keeps numbers on a stack. Each new number goes on top; an operator takes the top two, combines them, and puts the result back.
@@ -49,9 +52,6 @@ Type a number and press `Enter` to push it. Operators join the top two items int
    └───────────────────────────────────────┘
 ┌ Input ───────────────────────────────────┐
 >  10                                      │
-└──────────────────────────────────────────┘
-┌ Help ────────────────────────────────────┐
-│                                          │
 └──────────────────────────────────────────┘
 ```
 
