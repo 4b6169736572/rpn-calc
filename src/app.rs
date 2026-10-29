@@ -10,7 +10,6 @@ use ratatui::{
 
 use crate::{
     app::{GroupingSymbol::*, Mode::Normal, StackObject::*, Symbol::Variable},
-    domain,
     errors::Error,
     ui,
 };
@@ -46,6 +45,13 @@ impl App {
             Ok(object) => self.stack.push(object),
             Err(errror) => panic!(),
         }
+    }
+    pub fn store_action(&mut self, mode: Mode, input: Option<Input>, message: Message) {
+        self.history.push(Action {
+            mode,
+            message,
+            input,
+        })
     }
 }
 
@@ -549,11 +555,6 @@ pub fn update(app: &mut App, msg: Message) {
                 return;
             }
             if !app.input.is_empty() {
-                app.history.push(Action {
-                    input: Some(app.input.clone()),
-                    message: Message::Return,
-                    mode: app.mode.copy(),
-                });
                 app.push_input();
             }
             let (right, left) = (app.stack.pop(), app.stack.pop());
@@ -561,13 +562,9 @@ pub fn update(app: &mut App, msg: Message) {
                 app.stack.push(Expression(Expression {
                     left: Box::new(left),
                     right: Box::new(right),
-                    function: Box::new(function),
+                    function: Box::new(function.clone()),
                 }));
-                app.history.push(Action {
-                    input: None,
-                    message: Message::Function(Div),
-                    mode: app.mode.copy(),
-                });
+                app.store_action(app.mode.clone(), None, Message::Function(function.clone()));
             }
         }
         Message::Backspace => {
@@ -585,18 +582,22 @@ pub fn update(app: &mut App, msg: Message) {
             }
         }
         Message::Return => {
-            if !app.input.is_empty() {
-                app.push_input();
-            } else {
-                if let Some(object) = app.stack.last().cloned() {
+            if app.input.is_empty() {
+                if let Mode::Repeat(num) = app.mode {
+                    for _ in 1..=num {
+                        app.stack.push(app.stack.last().cloned().unwrap())
+                    }
+                    app.mode = Normal;
+                } else if let Some(object) = app.stack.last().cloned() {
                     app.stack.push(object);
                 }
-            }
-            if let Mode::Repeat(num) = app.mode {
-                for _ in 1..num {
+            } else if let Mode::Repeat(num) = app.mode {
+                for _ in 1..=num {
                     app.stack.push(app.stack.last().cloned().unwrap())
                 }
                 app.mode = Normal;
+            } else {
+                app.push_input();
             }
         }
         Message::Quit => app.should_quit = true,

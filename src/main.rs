@@ -23,9 +23,7 @@
 //! | [`stack`]  | Commented-out `Stack` type from the first working version |
 #![allow(unused)]
 mod app;
-mod domain;
 mod errors;
-mod stack;
 mod ui;
 
 /// Starts the calculator.
